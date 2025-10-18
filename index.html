@@ -740,7 +740,7 @@ await new Promise((resolve) => {
 });
 
 
-// Define all available themes (primary colors)
+/*** === THEME & FONT HANDLING === ***/
 const themes = {
   green:    { primary: '#3d8140', dark: '#235026', light: '#a4d4a6', bg: '#f2f8f3', text: '#143215' },
   blue:     { primary: '#2b6cb0', dark: '#1a4368', light: '#b3c9e6', bg: '#f3f7fb', text: '#102640' },
@@ -751,18 +751,33 @@ const themes = {
   maroon:   { primary: '#7b1e1e', dark: '#3d0f0f', light: '#d59b9b', bg: '#f9f3f3', text: '#230a0a' },
 };
 
-// === Apply a theme by name ===
+// Apply theme
 function applyTheme(themeName) {
   const vars = themes[themeName];
   if (!vars) return;
+  const root = document.documentElement;
   for (const [key, val] of Object.entries(vars)) {
-    document.documentElement.style.setProperty(`--${key}`, val);
+    root.style.setProperty(`--${key}`, val);
   }
+
+  // update accent-color for audio controls and buttons
+  const accent = vars.primary;
+  document.querySelectorAll('audio, button, input[type="range"]').forEach(el => {
+    el.style.accentColor = accent;
+  });
+
+  // also re-style #audioControls background dynamically
+  const ac = document.getElementById('audioControls');
+  if (ac) {
+    ac.style.borderColor = vars.dark;
+    ac.style.background = `linear-gradient(180deg, ${vars.light} 0%, ${vars.bg} 100%)`;
+  }
+
   localStorage.setItem('theme', themeName);
   document.getElementById('themeSelect').value = themeName;
 }
 
-// === Apply UI & Devanagari fonts ===
+// Apply fonts
 function applyFonts(uiFont, devaFont) {
   document.documentElement.style.setProperty('--ui-font', uiFont);
   document.documentElement.style.setProperty('--deva-font', devaFont);
@@ -772,7 +787,7 @@ function applyFonts(uiFont, devaFont) {
   document.getElementById('devaFontSelect').value = devaFont;
 }
 
-// === Restore preferences on load ===
+// Restore on load
 window.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('theme') || 'green';
   const savedUiFont = localStorage.getItem('uiFont') || '"Poppins", "Segoe UI", sans-serif';
@@ -781,7 +796,7 @@ window.addEventListener('DOMContentLoaded', () => {
   applyFonts(savedUiFont, savedDevaFont);
 });
 
-// === Listeners for dropdown changes ===
+// Event listeners
 document.getElementById('themeSelect').addEventListener('change', e => applyTheme(e.target.value));
 document.getElementById('uiFontSelect').addEventListener('change', e => {
   const uiFont = e.target.value;
