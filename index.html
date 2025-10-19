@@ -71,6 +71,12 @@ h1 {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+#speedBtn {
+  min-width: 70px;
+  justify-content: space-evenly;
+}
+
+
 /* faint dividers between groups */
 .style-divider {
   width: 1px;
@@ -371,6 +377,15 @@ audio {
   <i class="fas fa-play"></i>
 </button>
 
+
+<button id="muteBtn" class="icon-btn" title="Mute" aria-label="Mute or Unmute">
+  <i class="fas fa-volume-up"></i>
+</button>
+
+<button id="speedBtn" class="icon-btn" title="Change Speed" aria-label="Change Playback Speed">
+  <i class="fas fa-tachometer-alt"></i>
+</button>
+
 <button id="repeatVerseBtn" class="icon-btn" title="Repeat Verse" aria-label="Repeat Verse">
   <i class="fas fa-redo"></i>
 </button>
@@ -387,14 +402,6 @@ audio {
 <button id="nextDashakamBtn" class="btn-with-label" aria-label="Next Dashakam">
   <span class="btn-label-small">Dashakam</span>
   <i class="fas fa-step-forward"></i>
-</button>
-
-<button id="speedBtn" class="icon-btn" title="Change Speed" aria-label="Change Playback Speed">
-  <i class="fas fa-tachometer-alt"></i>
-</button>
-
-<button id="muteBtn" class="icon-btn" title="Mute" aria-label="Mute or Unmute">
-  <i class="fas fa-volume-up"></i>
 </button>
 
   </div>
@@ -1097,7 +1104,7 @@ audio.addEventListener('ended', async () => {
 
   /*** Build UI and initial load ***/
   initThemeDots();
-
+initSpeedButton();
   initFontSelectors();
 initFontSizeControls();
   buildGroupGrid();
@@ -1155,7 +1162,15 @@ const themes = {
     "primary-light": "#e09b9b",
     bg: "#fff4f4",
     text: "#3c1a1a"
+  },
+  custom: {
+    primary: "#f1948a",
+     "primary-dark": "#b85449",
+    "primary-light": "#f8c471",
+    bg: "#fffaf3",
+    text: "#4a2c23"
   }
+
 };
 
 
@@ -1210,6 +1225,39 @@ function initThemeDots(defaultTheme = 'green') {
   // Load from localStorage or fallback
   const saved = localStorage.getItem('theme') || defaultTheme;
   applyTheme(saved);
+}
+
+
+function initSpeedButton() {
+  const audio = document.getElementById('audio');
+  const speedBtn = document.getElementById('speedBtn');
+  if (!audio || !speedBtn) return;
+
+  // Possible playback speeds (you can adjust)
+  const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+  let currentIndex = 1; // default to 1× speed
+
+  // Load saved speed (if any)
+  const savedSpeed = parseFloat(localStorage.getItem('playbackSpeed'));
+  if (!isNaN(savedSpeed) && speeds.includes(savedSpeed)) {
+    audio.playbackRate = savedSpeed;
+    currentIndex = speeds.indexOf(savedSpeed);
+  }
+
+  // Update button text
+  function updateSpeedLabel() {
+    speedBtn.innerHTML = `<i class="fas fa-tachometer-alt"></i> ${speeds[currentIndex]}×`;
+  }
+  updateSpeedLabel();
+
+  // On click, cycle through speeds
+  speedBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex + 1) % speeds.length;
+    const newSpeed = speeds[currentIndex];
+    audio.playbackRate = newSpeed;
+    localStorage.setItem('playbackSpeed', newSpeed);
+    updateSpeedLabel();
+  });
 }
 
 
