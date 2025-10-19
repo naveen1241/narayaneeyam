@@ -579,30 +579,40 @@ repeatDashakamBtn.classList.toggle('active', repeatDashakam);
   }
 
   /*** VTT loader ***/
-  async function loadVTT(url) {
-    try {
-      const txt = await fetch(url).then(r => r.ok ? r.text() : '');
-      if (!txt) return [];
-      const lines = txt.split(/\r?\n/);
-      const out = [];
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('-->')) {
-          const [start, end] = lines[i].split('-->');
-          let textLines = [];
-          i++;
-          while (i < lines.length && lines[i].trim() !== '') {
-            textLines.push(lines[i]);
-            i++;
-          }
-          out.push({ start: (start||'').trim(), end: (end||'').trim(), text: textLines.join('\n') });
-        }
-      }
-      return out;
-    } catch (e) {
-      console.warn('loadVTT error', e);
+/*** Unified VTT Loader (used everywhere) ***/
+async function loadVTT(url) {
+  try {
+    const txt = await fetch(url).then(r => (r.ok ? r.text() : ''));
+    if (!txt) {
+      console.warn('⚠️ Empty or missing VTT:', url);
       return [];
     }
+    const lines = txt.split(/\r?\n/);
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes('-->')) {
+        const [start, end] = lines[i].split('-->');
+        const textLines = [];
+        i++;
+        while (i < lines.length && lines[i].trim() !== '') {
+          textLines.push(lines[i]);
+          i++;
+        }
+        out.push({
+          start: (start || '').trim(),
+          end: (end || '').trim(),
+          text: textLines.join('\n')
+        });
+      }
+    }
+    console.log(`✅ Loaded ${out.length} cues from ${url}`);
+    return out;
+  } catch (e) {
+    console.error('❌ loadVTT failed:', e);
+    return [];
   }
+}
+
 
   /*** Subtitle update (UI only) ***/
   function updateSubtitle(index) {
@@ -656,81 +666,49 @@ repeatDashakamBtn.classList.toggle('active', repeatDashakam);
     if (sel) sel.style.background = getComputedStyle(document.documentElement).getPropertyValue('--primary-light') || '#a4d4a6';
   }
 
- /*** Load Dashakam (wait for metadata/canplay, load vtt) ***/
+ /*** Load Dashakam (clean version) ***/
 async function loadDashakam(val, autoPlay = false) {
-  console.log("Loading Dashakam:", val, "autoPlay =", autoPlay);
-
-  cues = [];
-  currentCueIndex = -1;
-  verseDiv.innerHTML = splitWordsDiv.innerHTML = meaningDiv.innerHTML = "";
+  console.log("🔄 Loading Dashakam:", val);
 
   currentDashakam = parseInt(val, 10);
-
-  // Stop and set up new audio
   audio.pause();
   audio.src = `audio/Narayaneeyam_D${val}.mp3`;
   audio.preload = "auto";
   audio.load();
 
-  // ✅ Wait for metadata/duration to be available
-await new Promise((resolve) => {
-  let resolved = false;
-
-  const checkReady = () => {
-    if (resolved) return;
-    if (audio.readyState >= 2 && audio.duration && audio.duration > 0) {
-      resolved = true;
-      cleanup();
-      console.log(`Dashakam ${val} ready with duration=${audio.duration.toFixed(2)}s`);
+  // wait for metadata
+  await new Promise(resolve => {
+    const onMeta = () => {
+      audio.removeEventListener('loadedmetadata', onMeta);
       resolve();
-    }
-  };
+    };
+    audio.addEventListener('loadedmetadata', onMeta);
+    setTimeout(resolve, 2000);
+  });
 
-  const cleanup = () => {
-    clearInterval(check);
-    clearTimeout(timeout);
-    audio.removeEventListener("loadedmetadata", checkReady);
-    audio.removeEventListener("canplay", checkReady);
-  };
+  // load subtitles
+  cues = await loadVTT(`vtt_fixed_output/Narayaneeyam_D${val}.vtt`);
+  currentCueIndex = -1;
+  verseDiv.innerHTML = splitWordsDiv.innerHTML = meaningDiv.innerHTML = "";
 
-  const check = setInterval(checkReady, 100);
-  const timeout = setTimeout(() => {
-    if (!resolved) {
-      console.warn(`Dashakam ${val} load timeout fallback (duration=${audio.duration || 0})`);
-      resolved = true;
-      cleanup();
-      resolve();
-    }
-  }, 3000);
+  if (cues.length > 0) {
+    updateSubtitle(0);
+    updateCurrentInfo();
+  }
 
-  audio.addEventListener("loadedmetadata", checkReady);
-  audio.addEventListener("canplay", checkReady);
-});
-
-
-  // ✅ Load VTT cues
-  cues = (await loadVTT(`vtt_fixed_output/Narayaneeyam_D${val}.vtt`)) || [];
-
-  if (cues.length > 0) updateSubtitle(0);
   highlightGoTo();
-  updateCurrentInfo();
-
-  // Reset play icon
   playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
 
-  // ✅ Auto-play if requested
   if (autoPlay) {
     try {
       await audio.play();
       playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
     } catch (e) {
-      console.warn("autoplay failed", e);
+      console.warn("Autoplay failed:", e);
     }
   }
 
-  console.log(
-    `Dashakam ${val} ready (readyState=${audio.readyState}). cues=${cues.length}`
-  );
+  console.log(`✅ Dashakam ${val} ready with ${cues.length} verses`);
 }
 
 
@@ -838,49 +816,56 @@ await new Promise((resolve) => {
     return idx > 0 ? idx - 1 : 0;
   }
 
-/*** Timeupdate handler (with Repeat Verse fix) ***/
-audio.addEventListener('timeupdate', () => {
-  if (isSeeking || !cues || cues.length === 0) return;
-
+/*** SINGLE Timeupdate Handler (fixed repeat + next dashakam) ***/
+audio.addEventListener("timeupdate", async () => {
+  if (!cues || isSeeking) return;
   const now = audio.currentTime;
-  const duration = (audio.duration && !isNaN(audio.duration)) ? audio.duration : estimatedDashakamDuration;
-  const elapsed = now || 0;
-  const remaining = Math.max(0, duration - elapsed);
-  timeDisplay.textContent = `Elapsed: ${formatTime(elapsed)} | Remaining: ${formatTime(remaining)}`;
 
-  // === REPEAT VERSE FIX BLOCK ===
+  // Repeat verse handling
   if (repeatVerse && currentCueIndex >= 0 && currentCueIndex < cues.length) {
     const cue = cues[currentCueIndex];
     const cueStart = timeToSeconds(cue.start);
     const cueEnd = timeToSeconds(cue.end);
-
-    if (!isSeeking && now >= cueEnd - 0.15) {
-      console.log(`🔁 repeatVerse → rewinding to cue ${currentCueIndex} start=${cueStart}`);
-      isSeeking = true;
-      lastSeekTarget = cueStart;
+    if (now >= cueEnd - 0.15) {
+      console.log(`🔁 Repeating verse ${currentCueIndex + 1}`);
       audio.currentTime = cueStart;
-
-      // Wait for seek to settle
-      setTimeout(() => { 
-        isSeeking = false;
-        lastSeekTarget = null;
-      }, 500);
-      return; // prevent advancing cue
+      return;
     }
   }
-  // === END REPEAT VERSE FIX ===
 
-  // Ignore tiny jumps right after seek
-  if (lastSeekTarget && Math.abs(now - lastSeekTarget) < 0.35) return;
-
-  // === NORMAL CUE HANDLING ===
+  // Normal cue switching
   const idx = getCueIndexAtTime(now);
   if (idx !== currentCueIndex) {
-    console.log(`🎵 timeupdate → switching to cue ${idx}, time=${now.toFixed(2)}`);
+    currentCueIndex = idx;
     updateSubtitle(idx);
     updateCurrentInfo();
   }
+
+  // End of dashakam → load next
+  if (
+    cues.length > 0 &&
+    currentCueIndex === cues.length - 1 &&
+    now >= timeToSeconds(cues[cues.length - 1].end) - 0.25
+  ) {
+    if (repeatDashakam) {
+      console.log("🔁 Repeating Dashakam");
+      await jumpToCue(0, true);
+      return;
+    }
+    if (currentDashakam < totalDashakams) {
+      const nextD = String(currentDashakam + 1).padStart(3, '0');
+      console.log(`➡️ Moving to next Dashakam ${nextD}`);
+      await loadDashakam(nextD, true);
+      if (cues.length > 0) await jumpToCue(0, true);
+    } else {
+      console.log("🛑 End of final Dashakam");
+      audio.pause();
+    }
+  }
 });
+
+
+
 
 
 
