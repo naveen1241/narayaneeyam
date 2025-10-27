@@ -1027,32 +1027,38 @@ document.addEventListener('click', (e) => {
   function openGoto(open) { gotoOpen = open; if (gotoPanel) gotoPanel.style.display = open ? 'block' : 'none'; if (gotoToggle) gotoToggle.textContent = open ? 'Go to ▴' : 'Go to ▾'; }
   if (gotoToggle) { gotoToggle.addEventListener('click', () => openGoto(!gotoOpen)); }
 
-  /*** Transliteration toggle ***/
+
+/*** Transliteration toggle ***/
+let translitState = 'english'; // initialize state
+
 if (translitToggle) {
   translitToggle.addEventListener('click', async () => {
-  // Cycle states: english → devanagari → malayalam → english
-  if (translitState === 'english') translitState = 'devanagari';
-  else if (translitState === 'devanagari') translitState = 'malayalam';
-  else translitState = 'english';
+    // Cycle states: english → devanagari → malayalam → english
+    if (translitState === 'english') translitState = 'devanagari';
+    else if (translitState === 'devanagari') translitState = 'malayalam';
+    else translitState = 'english';
 
-  // Update button text
-  if (translitState === 'english') translitToggle.textContent = 'English Transliteration';
-  else if (translitState === 'devanagari') translitToggle.textContent = 'Devanagari';
-  else translitToggle.textContent = 'Malayalam';
+    // Update button text
+    if (translitState === 'english') translitToggle.textContent = 'English Transliteration';
+    else if (translitState === 'devanagari') translitToggle.textContent = 'Devanagari';
+    else translitToggle.textContent = 'Malayalam';
 
-  // Determine folder based on current state
-  let vttFolder = 'vtt_fixed_output'; // default for Devanagari
-  if (translitState === 'english') vttFolder = 'vtt_transliterated';
-  else if (translitState === 'malayalam') vttFolder = 'vtt_malayalam';
+    // Determine folder based on current state
+    let vttFolder = 'vtt_fixed_output'; // default for Devanagari
+    if (translitState === 'english') vttFolder = 'vtt_transliterated';
+    else if (translitState === 'devanagari') vttFolder = 'vtt_fixed_output';
+    else if (translitState === 'malayalam') vttFolder = 'vtt_malayalam';
 
-  // Reload cues
-  const dashNum = String(currentDashakam).padStart(3, '0');
-  cues = await loadVTT(`${vttFolder}/Narayaneeyam_D${dashNum}.vtt`);
+    // Reload cues
+    const dashNum = String(currentDashakam).padStart(3, '0');
+    cues = await loadVTT(`${vttFolder}/Narayaneeyam_D${dashNum}.vtt`);
 
-  if (cues.length > 0) updateSubtitle(currentCueIndex >= 0 ? currentCueIndex : 0);
-});
+    if (cues.length > 0) {
+      const idx = currentCueIndex >= 0 ? currentCueIndex : 0;
+      updateSubtitle(idx);
+    }
+  });
 }
-
 
   /*** Audio ended handling: auto-next dashakam ***/
 audio.addEventListener('ended', async () => {
