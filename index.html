@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeDots = document.getElementById('themeDots');
   const uiFontSelect = document.getElementById('uiFontSelect');
   const devaFontSelect = document.getElementById('devaFontSelect');
-  const translitToggle = document.getElementById('translitToggle');
+  const subtitleToggle = document.getElementById('subtitleToggle');
   let subtitleLang = 'devanagari'; // 'devanagari' | 'english' | 'malayalam'
 
   /*** State ***/
@@ -1062,28 +1062,21 @@ document.addEventListener('click', (e) => {
   if (gotoToggle) { gotoToggle.addEventListener('click', () => openGoto(!gotoOpen)); }
 
   /*** Transliteration toggle ***/
-if (translitToggle) {
-  translitToggle.addEventListener('click', async () => {
-  if (currentLanguage === 'devanagari') currentLanguage = 'english';
-  else if (currentLanguage === 'english') currentLanguage = 'malayalam';
-  else currentLanguage = 'devanagari';
+if (subtitleToggle) {
+  subtitleToggle.addEventListener('click', async () => {
+    if (subtitleLang === 'devanagari') subtitleLang = 'english';
+    else if (subtitleLang === 'english') subtitleLang = 'malayalam';
+    else subtitleLang = 'devanagari';
 
-  translitToggle.textContent = 
-      currentLanguage === 'devanagari' ? 'Devanagari' :
-      currentLanguage === 'english' ? 'English Transliteration' : 'Malayalam';
+    subtitleToggle.textContent =
+      subtitleLang === 'devanagari' ? 'Devanagari' :
+      subtitleLang === 'english' ? 'English Transliteration' :
+      'Malayalam';
 
-  // Load cues from correct folder
-  const vttFolder = currentLanguage === 'devanagari' ? 'vtt_fixed_output' :
-                    currentLanguage === 'english' ? 'vtt_transliterated' :
-                    'vtt_malayalam';
-  const dashNum = String(currentDashakam).padStart(3, '0');
-  cues = await loadVTT(`${vttFolder}/Narayaneeyam_D${dashNum}.vtt`);
-
-  if (cues.length > 0) updateSubtitle(currentCueIndex >= 0 ? currentCueIndex : 0);
-});
-
+    // Update subtitle immediately
+    if (cues.length > 0) updateSubtitle(currentCueIndex >= 0 ? currentCueIndex : 0);
+  });
 }
-
 
   /*** Audio ended handling: auto-next dashakam ***/
 audio.addEventListener('ended', async () => {
