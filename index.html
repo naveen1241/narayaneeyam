@@ -721,9 +721,20 @@ async function loadDashakam(val, autoPlay = false) {
   });
 
   // load subtitles
-  cues = await loadVTT(`vtt_fixed_output/Narayaneeyam_D${val}.vtt`);
-  currentCueIndex = -1;
-  verseDiv.innerHTML = splitWordsDiv.innerHTML = meaningDiv.innerHTML = "";
+ let cues;
+let currentCueIndex = -1;
+
+// Load subtitles
+if (language === "Malayalam") {
+    cues = await loadVTT(`vtt_malayalam/Narayaneeyam_D${val}.vtt`);
+    verseDiv.innerHTML = meaningDiv.innerHTML = "";
+    splitWordsDiv.innerHTML = ""; // explicitly empty, or skip updating
+} else {
+    cues = await loadVTT(`vtt_fixed_output/Narayaneeyam_D${val}.vtt`);
+    currentCueIndex = -1;
+    verseDiv.innerHTML = splitWordsDiv.innerHTML = meaningDiv.innerHTML = "";
+}
+
 
   if (cues.length > 0) {
     updateSubtitle(0);
